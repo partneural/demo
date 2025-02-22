@@ -42,3 +42,9 @@ env/
 .env
 .venv
 ENV/
+
+# audio samples
+/audio_samples
+
+# separate python script only for ease of development
+speechToText.py
