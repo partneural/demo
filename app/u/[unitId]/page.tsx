@@ -1,3 +1,7 @@
 export default function Page({ params }: { params: { unitId: string } }) {
-  return <div>Unit {params.unitId}</div>;
+  return (
+    <div>
+      <div className="bg-black"></div>
+    </div>
+  );
 }
