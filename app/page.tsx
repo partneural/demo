@@ -1,3 +1,4 @@
+'use client';
 import { useState, useEffect } from 'react';
 
 type Unit = {
@@ -8,17 +9,19 @@ type Unit = {
 
 export default function Page() {
   // Fetch units to populate the units table
-  // const [units, setUnits] = useState<Unit[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
 
-  // useEffect(() => {
-  //   const fetchUnits = async () => {
-  //     const res = await fetch('/api/units');
-  //     const response = await res.json();
+  useEffect(() => {
+    const fetchUnits = async () => {
+      const res = await fetch('/api/units');
+      const response = await res.json();
+      console.log(response);
 
-  //     setUnits(response.units);
-  //   };
-  //   fetchUnits();
-  // }, []);
+      setUnits(response.units);
+    };
+
+    fetchUnits();
+  }, []);
 
   return (
     <main>
