@@ -108,3 +108,6 @@ def alert():
 if __name__ == "__main__":
     app.run(port=5328)
 
+
+@app.route("/api/simulate", methods=["POST"])
+# Insert python script here

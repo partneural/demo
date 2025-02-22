@@ -4,3 +4,5 @@ python-dotenv
 elevenlabs
 twilio
 pyngrok
+pydub
+openai
