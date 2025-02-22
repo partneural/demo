@@ -19,5 +19,4 @@ supabase: Client = create_client(url, service_role_key)
 def get_units():
     units = supabase.from_("units").select("*").execute()
     logging.info(units)
-    units_data = units.data
-    return jsonify({"units": units_data}), 200
+    return jsonify({"units": units.data}), 200
