@@ -6,3 +6,4 @@ twilio
 pyngrok
 pydub
 openai
+posthog
