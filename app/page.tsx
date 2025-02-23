@@ -81,7 +81,7 @@ export default function Page() {
 
       if (response.status === 204) {
         // expecting a 204 from the POST route
-        console.log('Successfully initiated data streaming simulation.');
+        console.log('Successfully completed data streaming simulation.');
       } else {
         console.log('Unexpected response: ', response.status);
       }
