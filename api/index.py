@@ -62,12 +62,11 @@ def split_audio(file_path, chunk_length_ms=5123): # chunk length defined in mill
         chunks.append(chunk)
     return chunks
 
-def transcribe_audio(file_path, name):
+def transcribe_audio(file_path, name, name_list):
     chunks = split_audio(file_path)
     transcription = ""
     transcription_uuid = str(uuid.uuid4())
     chunk_count = 0 # counter for how many chunks have been sent
-    name_list = [name, 'Bystander', 'Suspect'] # list of possible names to be assigned to each transcription message
 
     timestamp = datetime.now(ZoneInfo('US/Eastern'))
     timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
@@ -221,8 +220,9 @@ def alert():
 
 @app.route("/api/simulate", methods=["POST"])
 def simulate():
-    file_path_1 = os.path.join(os.path.dirname(__file__), "..", "audio_samples", "Bodycam 1A.mp3")
-    transcription_1 = transcribe_audio(file_path_1, 'Alpha')
+    file_path = os.path.join(os.path.dirname(__file__), "..", "audio_samples", "Bodycam 2B.mp3")
+    name_list = ['Mike B.', 'Nina B.', 'Madison PD Police Sergeant']
+    transcription = transcribe_audio(file_path, 'Alpha', name_list)
 
     return '', 204
 
