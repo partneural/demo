@@ -148,6 +148,34 @@ Prior Incidents: 2 traffic violations (2020, 2022)`,
     };
   }, []);
 
+  useEffect(() => {
+    const makeAlertCall = async () => {
+      try {
+        const response = await fetch('/api/alert', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: 'Officer Josh is in danger! Alerting dispatch.',
+            phone_number: '+16145960099', // Use your actual phone number here
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to make alert call');
+        }
+
+        const data = await response.json();
+        console.log('Alert call initiated:', data);
+      } catch (error) {
+        console.error('Error making alert call:', error);
+      }
+    };
+
+    makeAlertCall();
+  }, []);
+
   return (
     <div className="flex h-screen w-full bg-[#1D1D1D]">
       <div className="flex w-2/3 flex-col justify-between p-10">
@@ -172,49 +200,55 @@ Prior Incidents: 2 traffic violations (2020, 2022)`,
           ))}
         </div>
       </div>
-      <div className="flex h-screen w-1/3 flex-col items-center bg-black">
-        <div className="mt-4 flex h-screen w-full flex-col space-y-4 p-4">
-          {messages.map((message: any, index: number) => (
-            <div
-              key={index}
-              className="flex w-full flex-row items-start justify-start space-x-2"
-            >
-              <span className="text-md text-gray-500">{message.timestamp}</span>
+      <div className="flex h-screen w-1/3 flex-col justify-center p-10">
+        <div className="flex h-[95%] w-full flex-col items-center rounded-md bg-black">
+          <div className="mt-4 flex h-screen w-full flex-col items-center space-y-4 p-4">
+            {messages.map((message: any, index: number) => (
               <div
-                className={`${
-                  message.role === 'assistant'
-                    ? 'items-start text-white'
-                    : 'items-end text-blue-500'
-                } whitespace-pre-wrap break-words`}
+                key={index}
+                className="flex w-full flex-row items-start space-x-4"
               >
-                {message.message}
+                <span className="text-sm text-gray-500">
+                  {message.timestamp}
+                </span>
+                <div className="w-3/4">
+                  <div
+                    className={`${
+                      message.role === 'assistant'
+                        ? 'items-start text-white'
+                        : 'items-end text-blue-500'
+                    } whitespace-pre-wrap break-words`}
+                  >
+                    {message.message}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-        <form className="relative w-[95%] pb-4" onSubmit={() => {}}>
-          <input
-            name="message"
-            type="text"
-            autoComplete="off"
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Type your message here..."
-            className="w-full rounded-md border border-[#2E2E2E] bg-[#1D1D1D] px-2 py-6 font-sans text-sm font-light text-white placeholder-gray-500 focus:border-[0.75px] focus:border-pink-500 focus:outline-none"
-            disabled={isLoading}
-          />
-          <button
-            type="submit"
-            className="absolute right-3 top-[40%] -translate-y-1/2"
-            disabled={isLoading}
-          >
-            <ArrowUp
-              strokeWidth={1}
-              className="rounded-full border border-[#2E2E2E] bg-white text-[#1D1D1D]"
-              size={20}
+            ))}
+          </div>
+          <form className="relative w-[95%] pb-4" onSubmit={() => {}}>
+            <input
+              name="message"
+              type="text"
+              autoComplete="off"
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              placeholder="Type your message here..."
+              className="w-full rounded-md border border-[#2E2E2E] bg-[#1D1D1D] px-2 py-6 font-sans text-sm font-light text-white placeholder-gray-500 focus:border-[0.75px] focus:border-pink-500 focus:outline-none"
+              disabled={isLoading}
             />
-          </button>
-        </form>
+            <button
+              type="submit"
+              className="absolute right-3 top-[40%] -translate-y-1/2"
+              disabled={isLoading}
+            >
+              <ArrowUp
+                strokeWidth={1}
+                className="rounded-full border border-[#2E2E2E] bg-white text-[#1D1D1D]"
+                size={20}
+              />
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
