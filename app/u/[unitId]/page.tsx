@@ -80,7 +80,7 @@ export default function Page({ params }: { params: { unitId: string } }) {
           ))}
         </div>
       </div>
-      <div className="flex w-1/3 flex-col items-center bg-black">
+      <div className="flex h-screen w-1/3 flex-col items-center bg-black">
         <div className="h-screen"></div>
         <form className="relative w-[95%] pb-4" onSubmit={() => {}}>
           <input
