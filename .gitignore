@@ -45,3 +45,6 @@ ENV/
 
 # separate python script only for ease of development
 speechToText.py
+
+# idea
+/.idea
