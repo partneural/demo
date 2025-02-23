@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ArrowUp, Circle } from 'react-feather';
+import {
+  ArrowUp,
+  Circle,
+  Maximize2,
+  Volume2,
+  Download,
+  Clock,
+  AlertCircle,
+} from 'react-feather';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -33,11 +41,13 @@ export default function Page({ params }: { params: { unitId: string } }) {
       }
 
       // Should be the most recent transcription and not be empty, ideally
-      const currentTranscriptionId = transcription_data[0].transcription_id;
+      const currentTranscriptionId = transcription_data[0].id;
       setTranscriptionId(currentTranscriptionId);
 
+      console.log('currentTranscriptionId', currentTranscriptionId);
+
       const { data, error } = await supabase
-        .from('messages')
+        .from('transcription_messages')
         .select('*')
         .eq('transcription_id', currentTranscriptionId)
         .order('created_at', { ascending: true });
@@ -57,13 +67,13 @@ export default function Page({ params }: { params: { unitId: string } }) {
     if (!transcriptionId) return;
 
     const channel = supabase
-      .channel('messages')
+      .channel('transcription_messages')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'messages',
+          table: 'transcription_messages',
           filter: `transcription_id=eq.${transcriptionId}`,
         },
         (payload) => {
@@ -94,6 +104,7 @@ Weight: 180 lbs
 Hair: Brown
 Eyes: Blue
 Prior Incidents: 2 traffic violations (2020, 2022)`,
+      `Alerting dispatch, Unit 242 is in danger!`,
     ];
 
     let currentMessageIndex = 0;
@@ -111,12 +122,14 @@ Prior Incidents: 2 traffic violations (2020, 2022)`,
           minute: '2-digit',
           second: '2-digit',
         });
+        const alert = currentMessage.includes('danger');
         setMessages((current: any) => [
           ...current,
           {
             message: '',
             role: 'assistant',
             timestamp,
+            alert,
           },
         ]);
       }
@@ -148,56 +161,87 @@ Prior Incidents: 2 traffic violations (2020, 2022)`,
     };
   }, []);
 
-  useEffect(() => {
-    const makeAlertCall = async () => {
-      try {
-        const response = await fetch('/api/alert', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: 'Officer Josh is in danger! Alerting dispatch.',
-            phone_number: '+16145960099', // Use your actual phone number here
-          }),
-        });
+  // useEffect(() => {
+  //   const makeAlertCall = async () => {
+  //     try {
+  //       const response = await fetch('/api/alert', {
+  //         method: 'POST',
+  //         headers: {
+  //           'Content-Type': 'application/json',
+  //         },
+  //         body: JSON.stringify({
+  //           text: 'Officer Josh is in danger! Alerting dispatch.',
+  //           phone_number: '+16145960099', // Use your actual phone number here
+  //         }),
+  //       });
 
-        if (!response.ok) {
-          throw new Error('Failed to make alert call');
-        }
+  //       if (!response.ok) {
+  //         throw new Error('Failed to make alert call');
+  //       }
 
-        const data = await response.json();
-        console.log('Alert call initiated:', data);
-      } catch (error) {
-        console.error('Error making alert call:', error);
-      }
-    };
+  //       const data = await response.json();
+  //       console.log('Alert call initiated:', data);
+  //     } catch (error) {
+  //       console.error('Error making alert call:', error);
+  //     }
+  //   };
 
-    makeAlertCall();
-  }, []);
+  //   makeAlertCall();
+  // }, []);
 
   return (
     <div className="flex h-screen w-full bg-[#1D1D1D]">
-      <div className="flex w-2/3 flex-col justify-between p-10">
-        <div className="h-screen w-full overflow-y-auto bg-white p-4">
-          {transcription.map((transcription: any) => (
-            <div
-              key={transcription.transcription_id}
-              className="mb-4 flex flex-col space-x-4 rounded-lg px-2"
-            >
-              <div className="flex flex-row space-x-2">
-                <div
-                  className={`text-sm ${transcription.user === 'Alpha' ? 'text-blue-500' : 'text-gray-400'}`}
-                >
-                  {transcription.user}
+      <div className="flex w-2/3 flex-col justify-between space-y-4 p-10">
+        <div className="flex flex-row justify-between rounded-lg">
+          <div className="flex flex-row items-center space-x-4">
+            <button className="flex items-center space-x-2 hover:text-blue-600">
+              <Maximize2 size={20} className="cursor-pointer" />
+              <span className="text-sm">Fullscreen</span>
+            </button>
+            <button className="flex items-center space-x-2 hover:text-blue-600">
+              <Volume2 size={20} className="cursor-pointer" />
+              <span className="text-sm">Audio</span>
+            </button>
+            <button className="flex items-center space-x-2 hover:text-blue-600">
+              <Download size={20} className="cursor-pointer" />
+              <span className="text-sm">Export</span>
+            </button>
+          </div>
+          <div className="flex flex-row items-center space-x-4">
+            <button className="flex items-center space-x-2 hover:text-blue-600">
+              <Clock size={20} className="cursor-pointer" />
+              <span className="text-sm">History</span>
+            </button>
+            <button className="flex items-center space-x-2 hover:text-red-600">
+              <AlertCircle size={20} className="cursor-pointer" />
+              <span className="text-sm">Emergency</span>
+            </button>
+          </div>
+        </div>
+        <div className="flex h-screen w-full flex-col space-y-4 overflow-y-auto bg-white p-4">
+          <span className="flex flex-row justify-between text-xl font-bold text-black">
+            {`Transcription ID: #${transcriptionId}`}
+          </span>
+          <>
+            {transcription.map((transcription: any) => (
+              <div
+                key={transcription.transcription_id}
+                className="mb-4 flex flex-col space-x-4 rounded-lg px-2"
+              >
+                <div className="flex flex-row space-x-2">
+                  <div
+                    className={`text-sm ${transcription.user === 'Alpha' ? 'text-blue-500' : 'text-red-500'}`}
+                  >
+                    {transcription.user}
+                  </div>
+                  <div className="text-sm text-gray-400">
+                    {transcription.created_at}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-400">
-                  {transcription.created_at}
-                </div>
+                <div className="text-black">{transcription.message}</div>
               </div>
-              <div className="text-black">{transcription.message}</div>
-            </div>
-          ))}
+            ))}
+          </>
         </div>
       </div>
       <div className="flex h-screen w-1/3 flex-col justify-center p-10">
@@ -206,18 +250,22 @@ Prior Incidents: 2 traffic violations (2020, 2022)`,
             {messages.map((message: any, index: number) => (
               <div
                 key={index}
-                className="flex w-full flex-row items-start space-x-4"
+                className={`flex w-full flex-row items-start space-x-4 ${
+                  message.alert ? 'bg-red-500' : ''
+                }`}
               >
-                <span className="text-sm text-gray-500">
+                <span
+                  className={`text-sm ${
+                    message.alert ? 'text-black' : 'text-gray-500'
+                  }`}
+                >
                   {message.timestamp}
                 </span>
                 <div className="w-3/4">
                   <div
-                    className={`${
-                      message.role === 'assistant'
-                        ? 'items-start text-white'
-                        : 'items-end text-blue-500'
-                    } whitespace-pre-wrap break-words`}
+                    className={`whitespace-pre-wrap break-words ${
+                      message.alert ? 'text-black' : 'text-white'
+                    }`}
                   >
                     {message.message}
                   </div>

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Map, { Marker } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useRouter } from 'next/navigation';
+import ClipLoader from 'react-spinners/ClipLoader';
 
 const MAPBOX_TOKEN =
   'pk.eyJ1IjoidW1lcmhkZXIiLCJhIjoiY203Z3I5OHNzMTM3NTJrb29odDI0YjJjeiJ9.dmwWWljmyGK_MhrO1GzvqQ';
@@ -75,20 +76,15 @@ export default function Page() {
     setLoading(true); // set loading state
 
     try {
-      const response = await fetch('/api/simulate', {
+      fetch('/api/simulate', {
         method: 'POST', // no headers or body since we're just using this to call a function
       });
-
-      if (response.status === 204) {
-        // expecting a 204 from the POST route
-        console.log('Successfully completed data streaming simulation.');
-      } else {
-        console.log('Unexpected response: ', response.status);
-      }
     } catch (error) {
       console.error('POST request failed: ', error);
     } finally {
-      setLoading(false); // reset loading state
+      setTimeout(() => {
+        setLoading(false);
+      }, 5000);
     }
   };
 
@@ -173,7 +169,10 @@ export default function Page() {
             onClick={handleSimulateClick}
             disabled={loading}
           >
-            {loading ? 'simulating...' : 'simulate'}
+            <div className="flex flex-row items-center space-x-2">
+              {loading && <ClipLoader color="#ffffff" size={15} />}
+              <span className="">simulate</span>
+            </div>
           </button>
         </div>
       </div>
