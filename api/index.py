@@ -202,7 +202,7 @@ if __name__ == "__main__":
 # Insert python script here
 @app.route("/api/simulate", methods=["POST"])
 def simulate():
-    file_path_1 = '../audio_samples/Bodycam 1A.mp3'
+    file_path_1 = os.path.join(os.path.dirname(__file__), "..", "audio_samples", "Bodycam 1A.mp3")
     transcription_1 = transcribe_audio(file_path_1, 'Alpha')
 
     return '', 204
