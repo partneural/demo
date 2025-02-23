@@ -62,11 +62,10 @@ def split_audio(file_path, chunk_length_ms=5123): # chunk length defined in mill
         chunks.append(chunk)
     return chunks
 
-def transcribe_audio(file_path, name, name_list):
+def transcribe_audio(file_path, name):
     chunks = split_audio(file_path)
     transcription = ""
     transcription_uuid = str(uuid.uuid4())
-    chunk_count = 0 # counter for how many chunks have been sent
 
     timestamp = datetime.now(ZoneInfo('US/Eastern'))
     timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
@@ -95,6 +94,25 @@ def transcribe_audio(file_path, name, name_list):
         .execute()
     )
 
+    # TODO: See if we can find a way to truly parse out gunshots and other important noises from an audio file
+    # gunshot detection simulation, sending a gunshot alert at the start
+    timestamp = datetime.now(ZoneInfo('US/Eastern'))
+    timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
+
+    db_response = (
+        supabase.table('transcription_messages')
+        .insert({
+            'created_at': timestamp_str,
+            'user': 'ALERT',
+            'message': 'GUNSHOT DETECTED',
+            'unit_id': unit_id,
+            'transcription_id': transcription_uuid
+        })
+        .execute()
+    )
+
+    time.sleep(2)
+
     # TODO: Implement conversations -- either figure out a way to separate distinct chunks of conversation (pydub can probably do this) or just pick an arbitrary/random number of chunks and assign a new conversation ID once that many chunks have been processed
 
     for chunk in chunks:
@@ -120,35 +138,13 @@ def transcribe_audio(file_path, name, name_list):
                 supabase.table('transcription_messages')
                 .insert({
                     'created_at': timestamp_str,
-                    'user': random.choice(name_list),
+                    'user': name,
                     'message': response,
                     'unit_id': unit_id,
                     'transcription_id': transcription_uuid
                 })
                 .execute()
             )
-
-            # TODO: See if we can find a way to truly parse out gunshots and other important noises from an audio file
-            # gunshot detection simulation
-            if chunk_count == 3: # alert will be sent after 4 chunks have been sent
-                time.sleep(2)
-
-                timestamp = datetime.now(ZoneInfo('US/Eastern'))
-                timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
-
-                db_response = (
-                    supabase.table('transcription_messages')
-                    .insert({
-                        'created_at': timestamp_str,
-                        'user': 'ALERT',
-                        'message': 'GUNSHOT DETECTED',
-                        'unit_id': unit_id,
-                        'transcription_id': transcription_uuid
-                    })
-                    .execute()
-                )
-
-            chunk_count += 1
 
             time.sleep(5) # artificial delay to simulate incoming streaming data
     return transcription
@@ -220,9 +216,8 @@ def alert():
 
 @app.route("/api/simulate", methods=["POST"])
 def simulate():
-    file_path = os.path.join(os.path.dirname(__file__), "..", "audio_samples", "Bodycam 2B.mp3")
-    name_list = ['Mike B.', 'Nina B.', 'Madison PD Police Sergeant']
-    transcription = transcribe_audio(file_path, 'Alpha', name_list)
+    file_path = os.path.join(os.path.dirname(__file__), "..", "audio_samples", "Bodycam 5B.mp3")
+    transcription = transcribe_audio(file_path, 'Alpha')
 
     return '', 204
 
