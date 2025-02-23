@@ -1,4 +1,14 @@
 from flask import Flask, jsonify, request, send_file
+import logging
+import os
+import openai
+import time
+
+from datetime import datetime
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request
+from io import BytesIO
+from pydub import AudioSegment
 from supabase import create_client, Client
 import os
 from dotenv import load_dotenv
@@ -9,6 +19,7 @@ from elevenlabs.client import ElevenLabs
 from elevenlabs import play
 from pyngrok import ngrok
 import uuid
+from zoneinfo import ZoneInfo
 
 env_path = os.path.join(os.path.dirname(__file__), "..", ".env.local")
 load_dotenv(dotenv_path=env_path)
@@ -38,6 +49,81 @@ audio_storage = {}
 
 def generate_unique_id():
     return str(uuid.uuid4())
+
+# TODO: Figure out a better way to split out files. Maybe we can add silence detection? I.e. once a chunk has hit a defined minimum length, keep going until we get a period of silence that's a certain length and cut it off there?
+def split_audio(file_path, chunk_length_ms=5123): # chunk length defined in milliseconds, using an irregular value to reduce chance of getting chunks that are too short due to the audio lengths used in testing
+    audio = AudioSegment.from_mp3(file_path)
+    chunks = []
+
+    for start_ms in range(0, len(audio), chunk_length_ms):
+        chunk = audio[start_ms:start_ms+chunk_length_ms]
+        chunks.append(chunk)
+    return chunks
+
+def transcribe_audio(file_path, name):
+    chunks = split_audio(file_path)
+    transcription = ""
+
+    # TODO: Implement conversations -- either figure out a way to separate distinct chunks of conversation (pydub can probably do this) or just pick an arbitrary/random number of chunks and assign a new conversation ID once that many chunks have been processed
+
+    for chunk in chunks:
+        with BytesIO() as chunk_io:
+            chunk.export(chunk_io, format='mp3')
+            chunk_io.seek(0)
+
+            chunk_io.name = 'chunk.mp3' # any file name is fine as long as it has the mp3 extension since it appears that Whisper identifies file type through the extension
+
+            response = openai.audio.transcriptions.create(
+                file=chunk_io,
+                model='whisper-1',
+                response_format='text',
+            )
+
+            transcription += response + " "
+
+            timestamp = datetime.now(ZoneInfo('US/Eastern'))
+            timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
+
+            # query to get the id of a unit since we need it in the transcriptions table to tie a transcription back to a unit
+            db_response = (
+                supabase.table('units')
+                .select('id')
+                .eq('name', name)
+                .execute()
+            )
+
+            # insert each transcribed chunk into the db
+            if db_response.data:
+                response_id = db_response.data[0]['id']
+
+                db_response = (
+                    supabase.table('transcriptions')
+                    .insert({
+                        'created_at': timestamp_str,
+                        'user': name, # TODO: Perform speaker diarization instead of hardcoding a name
+                        'message': response,
+                        'unit_id': response_id,
+                    })
+                    .execute()
+                )
+            # if a corresponding uuid can't be found for the given officer, then just use a random uuid as a fallback
+            else:
+                db_response = (
+                    supabase.table('transcriptions')
+                    .insert({
+                        'created_at': timestamp_str,
+                        'user': name, # TODO: Perform speaker diarization instead of hardcoding a name
+                        'message': response
+                    })
+                    .execute()
+                )
+
+            time.sleep(5) # artificial delay to simulate incoming streaming data
+
+            # print('Inserted row.')
+            # print(f'{timestamp} - {response}')
+            # print(transcription)
+    return transcription
 
 @app.route("/api/units", methods=["GET"])
 def get_units():
@@ -111,3 +197,9 @@ if __name__ == "__main__":
 
 @app.route("/api/simulate", methods=["POST"])
 # Insert python script here
+@app.route("/api/simulate", methods=["POST"])
+def simulate():
+    file_path_1 = '../audio_samples/Bodycam 1A.mp3'
+    transcription_1 = transcribe_audio(file_path_1, 'Alpha')
+
+    return '', 204
