@@ -22,9 +22,9 @@ export default function Page() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [viewport, setViewport] = useState({
-    latitude: 40.39,
-    longitude: -82.55,
-    zoom: 10,
+    latitude: 40.686067,
+    longitude: -73.856608,
+    zoom: 14,
   });
 
   // Add animation effect
