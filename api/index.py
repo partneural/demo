@@ -86,6 +86,7 @@ def alert():
                     <Play>{ngrok_url}/api/audio/{call_sid}</Play>
                 </Response>"""
 
+        logging.info(phone_number)
         # Make the call using Twilio
         call = twilio_client.calls.create(
             twiml=twiml,
