@@ -1,3 +1,6 @@
 Flask
 supabase
 python-dotenv
+elevenlabs
+twilio
+pyngrok
