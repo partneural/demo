@@ -49,7 +49,7 @@ twilio_client = TwilioClient(
     os.getenv("TWILIO_AUTH_TOKEN")
 )
 
-client = ElevenLabs()
+elevenlabs_client = ElevenLabs()
 
 posthog.project_api_key = "phc_JPsTCC1hbVOMGV37iPDmxHdoagyXNvK1DBX9DuB62Zo"
 posthog.host = "https://us.i.posthog.com"
@@ -260,7 +260,7 @@ def alert():
         }).eq('id', unit_id).execute()
 
         # Generate audio using ElevenLabs
-        audio = client.text_to_speech.convert(
+        audio = elevenlabs_client.text_to_speech.convert(
             text=text,
             voice_id="JBFqnCBsd6RMkjVDRZzb",
             model_id="eleven_multilingual_v2",
