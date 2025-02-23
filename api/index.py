@@ -193,16 +193,14 @@ def alert():
         logging.error(f"Error making alert call: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-# Add at the bottom of the file
-if __name__ == "__main__":
-    app.run(port=5328)
-
-
-@app.route("/api/simulate", methods=["POST"])
-# Insert python script here
 @app.route("/api/simulate", methods=["POST"])
 def simulate():
     file_path_1 = os.path.join(os.path.dirname(__file__), "..", "audio_samples", "Bodycam 1A.mp3")
     transcription_1 = transcribe_audio(file_path_1, 'Alpha')
 
     return '', 204
+
+# Add at the bottom of the file
+if __name__ == "__main__":
+    app.run(port=5328)
+
