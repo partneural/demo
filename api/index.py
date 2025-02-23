@@ -53,7 +53,7 @@ def generate_unique_id():
     return str(uuid.uuid4())
 
 # TODO: Figure out a better way to split out files. Maybe we can add silence detection? I.e. once a chunk has hit a defined minimum length, keep going until we get a period of silence that's a certain length and cut it off there?
-def split_audio(file_path, chunk_length_ms=5123): # chunk length defined in milliseconds, using an irregular value to reduce chance of getting chunks that are too short due to the audio lengths used in testing
+def split_audio(file_path, chunk_length_ms=5123): # chunk length defined in milliseconds, irregular value is used to reduce chance of splitting out an audio chunk that is too short (a quirk of the fact we're using samples that are exactly 60 seconds long)
     audio = AudioSegment.from_mp3(file_path)
     chunks = []
 
@@ -66,11 +66,11 @@ def transcribe_audio(file_path, name):
     chunks = split_audio(file_path)
     transcription = ""
     transcription_uuid = str(uuid.uuid4())
+    chunk_count = 0 # counter for how many chunks have been sent
+    name_list = [name, 'Bystander', 'Suspect'] # list of possible names to be assigned to each transcription message
 
     timestamp = datetime.now(ZoneInfo('US/Eastern'))
     timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
-
-    name_list = [name, 'Bystander', 'Suspect'] # list of possible names to be assigned to each transcription message
 
     # find the unit_id of the name provided
     db_response = (
@@ -116,6 +116,7 @@ def transcribe_audio(file_path, name):
             timestamp = datetime.now(ZoneInfo('US/Eastern'))
             timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
 
+            # insert audio chunk into db
             db_response = (
                 supabase.table('transcription_messages')
                 .insert({
@@ -127,6 +128,28 @@ def transcribe_audio(file_path, name):
                 })
                 .execute()
             )
+
+            # TODO: See if we can find a way to truly parse out gunshots and other important noises from an audio file
+            # gunshot detection simulation
+            if chunk_count == 3: # alert will be sent after 4 chunks have been sent
+                time.sleep(2)
+
+                timestamp = datetime.now(ZoneInfo('US/Eastern'))
+                timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
+
+                db_response = (
+                    supabase.table('transcription_messages')
+                    .insert({
+                        'created_at': timestamp_str,
+                        'user': 'ALERT',
+                        'message': 'GUNSHOT DETECTED',
+                        'unit_id': unit_id,
+                        'transcription_id': transcription_uuid
+                    })
+                    .execute()
+                )
+
+            chunk_count += 1
 
             time.sleep(5) # artificial delay to simulate incoming streaming data
     return transcription
