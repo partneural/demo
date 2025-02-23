@@ -108,21 +108,9 @@ def transcribe_audio(file_path, name):
                 )
             # if a corresponding uuid can't be found for the given officer, then just use a random uuid as a fallback
             else:
-                db_response = (
-                    supabase.table('transcriptions')
-                    .insert({
-                        'created_at': timestamp_str,
-                        'user': name, # TODO: Perform speaker diarization instead of hardcoding a name
-                        'message': response
-                    })
-                    .execute()
-                )
+                raise Exception('Invalid officer name.')
 
             time.sleep(5) # artificial delay to simulate incoming streaming data
-
-            # print('Inserted row.')
-            # print(f'{timestamp} - {response}')
-            # print(transcription)
     return transcription
 
 @app.route("/api/units", methods=["GET"])
