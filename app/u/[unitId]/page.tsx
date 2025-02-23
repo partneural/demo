@@ -230,7 +230,7 @@ Prior Incidents: 2 traffic violations (2020, 2022)`,
               >
                 <div className="flex flex-row space-x-2">
                   <div
-                    className={`text-sm ${transcription.user === 'Alpha' ? 'text-blue-500' : 'text-red-500'}`}
+                    className={`text-sm ${transcription.user === 'Madison PD Police Sergeant' ? 'text-blue-500' : 'text-red-500'}`}
                   >
                     {transcription.user}
                   </div>
