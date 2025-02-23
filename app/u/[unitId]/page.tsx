@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Play, PlayCircle, ArrowUp } from 'react-feather';
+import { ArrowUp } from 'react-feather';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -12,14 +12,32 @@ export default function Page({ params }: { params: { unitId: string } }) {
   const [messages, setMessages] = useState<any[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [transcriptionId, setTranscriptionId] = useState<string | null>(null);
 
+  // First useEffect to fetch initial data
   useEffect(() => {
-    // Initial fetch of messages
     const fetchMessages = async () => {
+      const { data: transcription_data, error: transcription_error } =
+        await supabase
+          .from('transcriptions')
+          .select('*')
+          .eq('unit_id', params.unitId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+      if (transcription_error) {
+        console.error('Error fetching transcription:', transcription_error);
+        return;
+      }
+
+      // Should be the most recent transcription and not be empty, ideally
+      const currentTranscriptionId = transcription_data[0].transcription_id;
+      setTranscriptionId(currentTranscriptionId);
+
       const { data, error } = await supabase
-        .from('transcriptions')
+        .from('messages')
         .select('*')
-        .eq('unit_id', params.unitId)
+        .eq('transcription_id', currentTranscriptionId)
         .order('created_at', { ascending: true });
 
       if (error) {
@@ -30,17 +48,21 @@ export default function Page({ params }: { params: { unitId: string } }) {
     };
 
     fetchMessages();
+  }, [params.unitId]);
 
-    // Set up realtime subscription
+  // Separate useEffect for subscription that depends on transcriptId
+  useEffect(() => {
+    if (!transcriptionId) return;
+
     const channel = supabase
-      .channel('transcriptions')
+      .channel('messages')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'transcriptions',
-          filter: `unit_id=eq.${params.unitId}`,
+          table: 'messages',
+          filter: `transcription_id=eq.${transcriptionId}`,
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
@@ -50,11 +72,10 @@ export default function Page({ params }: { params: { unitId: string } }) {
       )
       .subscribe();
 
-    // Cleanup subscription
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [params.unitId, supabase]);
+  }, [transcriptionId]);
 
   return (
     <div className="flex h-screen w-full bg-[#1D1D1D]">
@@ -62,7 +83,7 @@ export default function Page({ params }: { params: { unitId: string } }) {
         <div className="h-screen overflow-y-auto bg-white p-4">
           {messages.map((message) => (
             <div
-              key={message.transcript_id}
+              key={message.transcription_id}
               className="mb-4 flex flex-col space-x-4 rounded-lg px-2"
             >
               <div className="flex flex-row space-x-2">
