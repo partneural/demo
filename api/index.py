@@ -4,6 +4,7 @@ import os
 import openai
 import time
 import uuid
+import random
 
 from datetime import datetime
 from dotenv import load_dotenv
@@ -69,6 +70,8 @@ def transcribe_audio(file_path, name):
     timestamp = datetime.now(ZoneInfo('US/Eastern'))
     timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
 
+    name_list = [name, 'Bystander', 'Suspect'] # list of possible names to be assigned to each transcription message
+
     # find the unit_id of the name provided
     db_response = (
         supabase.table('units')
@@ -117,7 +120,7 @@ def transcribe_audio(file_path, name):
                 supabase.table('transcription_messages')
                 .insert({
                     'created_at': timestamp_str,
-                    'user': name, # TODO: Perform speaker diarization instead of hardcoding a name
+                    'user': random.choice(name_list),
                     'message': response,
                     'unit_id': unit_id,
                     'transcription_id': transcription_uuid
