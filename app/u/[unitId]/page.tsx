@@ -107,87 +107,95 @@ Prior Incidents: 2 traffic violations (2020, 2022)`,
       `Alerting dispatch, Unit 242 is in danger!`,
     ];
 
-    let currentMessageIndex = 0;
-    let currentCharIndex = 0;
-    let streamingInterval: NodeJS.Timeout;
+    // Add initial delay of 8 seconds
+    const initialTimeout = setTimeout(() => {
+      let currentMessageIndex = 0;
+      let currentCharIndex = 0;
+      let streamingInterval: NodeJS.Timeout;
 
-    const streamNextMessage = () => {
-      if (currentMessageIndex >= messages.length) return;
+      const streamNextMessage = () => {
+        if (currentMessageIndex >= messages.length) return;
 
-      const currentMessage = messages[currentMessageIndex];
+        const currentMessage = messages[currentMessageIndex];
+        const isAlertMessage = currentMessage.includes('danger');
 
-      if (currentCharIndex === 0) {
-        const timestamp = new Date().toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        });
-        const alert = currentMessage.includes('danger');
-        setMessages((current: any) => [
-          ...current,
-          {
-            message: '',
-            role: 'assistant',
-            timestamp,
-            alert,
-          },
-        ]);
-      }
-
-      streamingInterval = setInterval(() => {
-        if (currentCharIndex < currentMessage.length) {
-          setMessages((current: any) => {
-            const newMessages = [...current];
-            newMessages[newMessages.length - 1].message = currentMessage.slice(
-              0,
-              currentCharIndex + 1
-            );
-            return newMessages;
+        if (currentCharIndex === 0) {
+          const timestamp = new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
           });
-          currentCharIndex++;
-        } else {
-          clearInterval(streamingInterval);
-          currentMessageIndex++;
-          currentCharIndex = 0;
-          setTimeout(streamNextMessage, 1000); // Delay before starting next message
-        }
-      }, 30); // Adjust this value to control streaming speed
-    };
+          const alert = currentMessage.includes('danger');
+          setMessages((current: any) => [
+            ...current,
+            {
+              message: '',
+              role: 'assistant',
+              timestamp,
+              alert,
+            },
+          ]);
 
-    streamNextMessage();
+          // Make alert call when alert message starts
+          if (isAlertMessage) {
+            makeAlertCall();
+          }
+        }
+
+        streamingInterval = setInterval(() => {
+          if (currentCharIndex < currentMessage.length) {
+            setMessages((current: any) => {
+              const newMessages = [...current];
+              newMessages[newMessages.length - 1].message =
+                currentMessage.slice(0, currentCharIndex + 1);
+              return newMessages;
+            });
+            currentCharIndex++;
+          } else {
+            clearInterval(streamingInterval);
+            currentMessageIndex++;
+            currentCharIndex = 0;
+            setTimeout(streamNextMessage, 1000); // Delay before starting next message
+          }
+        }, 30);
+      };
+
+      streamNextMessage();
+
+      return () => {
+        clearInterval(streamingInterval);
+      };
+    }, 8000); // 8 second initial delay
 
     return () => {
-      clearInterval(streamingInterval);
+      clearTimeout(initialTimeout);
     };
   }, []);
 
-  // useEffect(() => {
-  //   const makeAlertCall = async () => {
-  //     try {
-  //       const response = await fetch('/api/alert', {
-  //         method: 'POST',
-  //         headers: {
-  //           'Content-Type': 'application/json',
-  //         },
-  //         body: JSON.stringify({
-  //           text: 'Officer Josh is in danger! Alerting dispatch.',
-  //           phone_number: '+16145960099', // Use your actual phone number here
-  //         }),
-  //       });
+  const makeAlertCall = async () => {
+    try {
+      const response = await fetch('/api/alert', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: 'Officer Josh is in danger! Alerting dispatch.',
+          phone_number: '+16145960099', // Use your actual phone number here
+          unit_id: params.unitId,
+        }),
+      });
 
-  //       if (!response.ok) {
-  //         throw new Error('Failed to make alert call');
-  //       }
+      if (!response.ok) {
+        throw new Error('Failed to make alert call');
+      }
 
-  //       const data = await response.json();
-  //       console.log('Alert call initiated:', data);
-  //     } catch (error) {
-  //       console.error('Error making alert call:', error);
-  //     }
-  //   };
-
-  //   makeAlertCall();
-  // }, []);
+      const data = await response.json();
+      console.log('Alert call initiated:', data);
+    } catch (error) {
+      console.error('Error making alert call:', error);
+    }
+  };
 
   return (
     <div className="flex h-screen w-full bg-[#1D1D1D]">

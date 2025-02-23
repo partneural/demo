@@ -5,8 +5,11 @@ import openai
 import time
 import uuid
 import random
+import posthog
+from threading import Thread
 
 from datetime import datetime
+from posthog.ai.openai import OpenAI
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from io import BytesIO
@@ -22,6 +25,13 @@ from elevenlabs import play
 from pyngrok import ngrok
 import uuid
 from zoneinfo import ZoneInfo
+
+# Add after imports, before app creation
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    force=True  # This ensures our config takes precedence
+)
 
 env_path = os.path.join(os.path.dirname(__file__), "..", ".env.local")
 load_dotenv(dotenv_path=env_path)
@@ -40,6 +50,14 @@ twilio_client = TwilioClient(
 )
 
 client = ElevenLabs()
+
+posthog.project_api_key = "phc_JPsTCC1hbVOMGV37iPDmxHdoagyXNvK1DBX9DuB62Zo"
+posthog.host = "https://us.i.posthog.com"
+
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    posthog_client=posthog
+)
 
 # Remove the ngrok initialization and just use an environment variable
 ngrok_url = os.getenv("NGROK_URL")
@@ -63,10 +81,16 @@ def split_audio(file_path, chunk_length_ms=5123): # chunk length defined in mill
     return chunks
 
 def transcribe_audio(file_path, name, name_list):
+    logging.info("Starting transcribe_audio...")
     chunks = split_audio(file_path)
+    logging.info(f"Split audio into {len(chunks)} chunks")
+    
     transcription = ""
     transcription_uuid = str(uuid.uuid4())
-    chunk_count = 0 # counter for how many chunks have been sent
+    chunk_count = 0
+
+    # Add timestamp tracking for latency calculation
+    start_time = time.time()
 
     timestamp = datetime.now(ZoneInfo('US/Eastern'))
     timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
@@ -97,60 +121,110 @@ def transcribe_audio(file_path, name, name_list):
 
     # TODO: Implement conversations -- either figure out a way to separate distinct chunks of conversation (pydub can probably do this) or just pick an arbitrary/random number of chunks and assign a new conversation ID once that many chunks have been processed
 
-    for chunk in chunks:
-        with BytesIO() as chunk_io:
-            chunk.export(chunk_io, format='mp3')
-            chunk_io.seek(0)
+    for chunk_count, chunk in enumerate(chunks):
+        try:
+            logging.info(f"Processing chunk {chunk_count}...")
+            with BytesIO() as chunk_io:
+                chunk.export(chunk_io, format='mp3')
+                chunk_io.seek(0)
 
-            chunk_io.name = 'chunk.mp3' # any file name is fine as long as it has the mp3 extension since it appears that Whisper identifies file type through the extension
+                chunk_io.name = 'chunk.mp3'
 
-            response = openai.audio.transcriptions.create(
-                file=chunk_io,
-                model='whisper-1',
-                response_format='text',
-            )
+                response = client.audio.transcriptions.create(
+                    file=chunk_io,
+                    model='whisper-1',
+                    response_format='text',
+                )
 
-            transcription += response + " "
+                # Calculate latency
+                latency = time.time() - start_time
 
-            timestamp = datetime.now(ZoneInfo('US/Eastern'))
-            timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
+                # Before PostHog capture
+                logging.info(f"Attempting PostHog capture for chunk {chunk_count}...")
+                try:
+                    # Generate a trace ID for this transcription chunk
+                    trace_id = str(uuid.uuid4())
+                    
+                    # First, capture the span
+                    posthog.capture(
+                        distinct_id=transcription_uuid,
+                        event='$ai_span',
+                        properties={
+                            '$ai_trace_id': trace_id,
+                            '$ai_model': 'whisper-1',
+                            '$ai_provider': 'openai',
+                            '$ai_input': f'Audio chunk {chunk_count} from transcription {transcription_uuid}',
+                            '$ai_output': response,
+                            '$ai_latency': latency,
+                            '$ai_http_status': 200,
+                            '$ai_base_url': 'https://api.openai.com/v1',
+                            'unit_id': unit_id,
+                            'chunk_number': chunk_count
+                        }
+                    )
 
-            # insert audio chunk into db
-            db_response = (
-                supabase.table('transcription_messages')
-                .insert({
-                    'created_at': timestamp_str,
-                    'user': random.choice(name_list),
-                    'message': response,
-                    'unit_id': unit_id,
-                    'transcription_id': transcription_uuid
-                })
-                .execute()
-            )
+                    # Then capture the generation
+                    posthog.capture(
+                        distinct_id=transcription_uuid,
+                        event='$ai_generation',
+                        properties={
+                            '$ai_trace_id': trace_id,
+                            '$ai_model': 'whisper-1',
+                            '$ai_provider': 'openai',
+                            '$ai_input': f'Audio chunk {chunk_count} from transcription {transcription_uuid}',
+                            '$ai_output': response,
+                            'unit_id': unit_id,
+                            'chunk_number': chunk_count
+                        }
+                    )
+                    
+                    logging.info(f"Successfully captured PostHog events for chunk {chunk_count}")
+                except Exception as e:
+                    logging.error(f"Error capturing PostHog events for chunk {chunk_count}: {str(e)}")
 
-            # TODO: See if we can find a way to truly parse out gunshots and other important noises from an audio file
-            # gunshot detection simulation
-            if chunk_count == 3: # alert will be sent after 4 chunks have been sent
-                time.sleep(2)
+                transcription += response + " "
 
                 timestamp = datetime.now(ZoneInfo('US/Eastern'))
                 timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
 
+                # insert audio chunk into db
                 db_response = (
                     supabase.table('transcription_messages')
                     .insert({
                         'created_at': timestamp_str,
-                        'user': 'ALERT',
-                        'message': 'GUNSHOT DETECTED',
+                        'user': random.choice(name_list),
+                        'message': response,
                         'unit_id': unit_id,
                         'transcription_id': transcription_uuid
                     })
                     .execute()
                 )
 
-            chunk_count += 1
+                # TODO: See if we can find a way to truly parse out gunshots and other important noises from an audio file
+                # gunshot detection simulation
+                if chunk_count == 3: # alert will be sent after 4 chunks have been sent
+                    time.sleep(2)
 
-            time.sleep(5) # artificial delay to simulate incoming streaming data
+                    timestamp = datetime.now(ZoneInfo('US/Eastern'))
+                    timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
+
+                    db_response = (
+                        supabase.table('transcription_messages')
+                        .insert({
+                            'created_at': timestamp_str,
+                            'user': 'ALERT',
+                            'message': 'GUNSHOT DETECTED',
+                            'unit_id': unit_id,
+                            'transcription_id': transcription_uuid
+                        })
+                        .execute()
+                    )
+
+            logging.info(f"Finished processing chunk {chunk_count}")
+            
+        except Exception as e:
+            logging.error(f"Error processing chunk {chunk_count}: {str(e)}", exc_info=True)
+
     return transcription
 
 @app.route("/api/units", methods=["GET"])
@@ -173,11 +247,17 @@ def serve_audio(call_sid):
 def alert():
     try:
         data = request.json
-        if not data or "text" not in data or "phone_number" not in data:
+        if not data or "text" not in data or "phone_number" not in data or "unit_id" not in data:
             return jsonify({"error": "Missing required fields"}), 400
 
         text = data["text"]
         phone_number = data["phone_number"]
+        unit_id = data["unit_id"]
+
+        # Update unit status in Supabase
+        supabase.table('units').update({
+            'status': 'alert'
+        }).eq('id', unit_id).execute()
 
         # Generate audio using ElevenLabs
         audio = client.text_to_speech.convert(
@@ -220,11 +300,25 @@ def alert():
 
 @app.route("/api/simulate", methods=["POST"])
 def simulate():
-    file_path = os.path.join(os.path.dirname(__file__), "..", "audio_samples", "Bodycam 2B.mp3")
-    name_list = ['Mike B.', 'Nina B.', 'Madison PD Police Sergeant']
-    transcription = transcribe_audio(file_path, 'Alpha', name_list)
+    def run_simulation():
+        try:
+            logging.info("Starting simulation in background thread...")
+            file_path = os.path.join(os.path.dirname(__file__), "..", "audio_samples", "Bodycam 2B.mp3")
+            name_list = ['Mike B.', 'Nina B.', 'Madison PD Police Sergeant']
+            
+            # Add logging before transcribe_audio
+            logging.info("About to start transcription...")
+            transcribe_audio(file_path, 'Alpha', name_list)
+            logging.info("Transcription completed successfully")
+        except Exception as e:
+            logging.error(f"Simulation error: {str(e)}", exc_info=True)  # Added exc_info for stack trace
 
-    return '', 204
+    # Log before starting thread
+    logging.info("Received simulation request, starting thread...")
+    Thread(target=run_simulation).start()
+    logging.info("Thread started, returning response")
+    
+    return jsonify({"message": "Simulation started"}), 202
 
 # Add at the bottom of the file
 if __name__ == "__main__":
