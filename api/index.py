@@ -106,7 +106,7 @@ def transcribe_audio(file_path, name):
                     })
                     .execute()
                 )
-            # if a corresponding uuid can't be found for the given officer, then just use a random uuid as a fallback
+            # if a corresponding uuid can't be found for the given officer, then throw an exception
             else:
                 raise Exception('Invalid officer name.')
 
