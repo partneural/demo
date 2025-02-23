@@ -20,6 +20,7 @@ export default function Page() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [time, setTime] = useState(0);
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
   const [viewport, setViewport] = useState({
     latitude: 40.39,
     longitude: -82.55,
@@ -69,6 +70,27 @@ export default function Page() {
     ...unit,
     latitude: unit.latitude + getTriangularOffset(time * 0.1), // Triangular wave pattern
   }));
+
+  const handleSimulateClick = async () => {
+    setLoading(true); // set loading state
+
+    try {
+      const response = await fetch('/api/simulate', {
+        method: 'POST', // no headers or body since we're just using this to call a function
+      });
+
+      if (response.status === 204) {
+        // expecting a 204 from the POST route
+        console.log('Successfully initiated data streaming simulation.');
+      } else {
+        console.log('Unexpected response: ', response.status);
+      }
+    } catch (error) {
+      console.error('POST request failed: ', error);
+    } finally {
+      setLoading(false); // reset loading state
+    }
+  };
 
   return (
     <main>
@@ -146,8 +168,12 @@ export default function Page() {
           </div>
         </div>
         <div className="mt-4 flex w-5/6 flex-row justify-end">
-          <button className="text-md bg-blue-500 p-2 font-bold text-white">
-            simulate
+          <button
+            className="text-md bg-blue-500 p-2 font-bold text-white"
+            onClick={handleSimulateClick}
+            disabled={loading}
+          >
+            {loading ? 'simulating...' : 'simulate'}
           </button>
         </div>
       </div>
