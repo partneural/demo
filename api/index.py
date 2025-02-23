@@ -3,6 +3,7 @@ import logging
 import os
 import openai
 import time
+import uuid
 
 from datetime import datetime
 from dotenv import load_dotenv
@@ -63,6 +64,34 @@ def split_audio(file_path, chunk_length_ms=5123): # chunk length defined in mill
 def transcribe_audio(file_path, name):
     chunks = split_audio(file_path)
     transcription = ""
+    transcription_uuid = str(uuid.uuid4())
+
+    timestamp = datetime.now(ZoneInfo('US/Eastern'))
+    timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
+
+    # find the unit_id of the name provided
+    db_response = (
+        supabase.table('units')
+        .select('id')
+        .eq('name', name)
+        .execute()
+    )
+
+    if db_response.data:
+        unit_id = db_response.data[0]['id']
+    else: # if a corresponding uuid can't be found for the given officer then throw an exception
+        raise Exception('Invalid officer name.')
+
+    # create a transcription entry for this transcription
+    db_response = (
+        supabase.table('transcriptions')
+        .insert({
+            'id': transcription_uuid,
+            'created_at': timestamp_str,
+            'unit_id': unit_id
+        })
+        .execute()
+    )
 
     # TODO: Implement conversations -- either figure out a way to separate distinct chunks of conversation (pydub can probably do this) or just pick an arbitrary/random number of chunks and assign a new conversation ID once that many chunks have been processed
 
@@ -84,31 +113,17 @@ def transcribe_audio(file_path, name):
             timestamp = datetime.now(ZoneInfo('US/Eastern'))
             timestamp_str = timestamp.isoformat() # convert to ISO 8601 formatted string for compatability
 
-            # query to get the id of a unit since we need it in the transcriptions table to tie a transcription back to a unit
             db_response = (
-                supabase.table('units')
-                .select('id')
-                .eq('name', name)
+                supabase.table('transcription_messages')
+                .insert({
+                    'created_at': timestamp_str,
+                    'user': name, # TODO: Perform speaker diarization instead of hardcoding a name
+                    'message': response,
+                    'unit_id': unit_id,
+                    'transcription_id': transcription_uuid
+                })
                 .execute()
             )
-
-            # insert each transcribed chunk into the db
-            if db_response.data:
-                response_id = db_response.data[0]['id']
-
-                db_response = (
-                    supabase.table('transcriptions')
-                    .insert({
-                        'created_at': timestamp_str,
-                        'user': name, # TODO: Perform speaker diarization instead of hardcoding a name
-                        'message': response,
-                        'unit_id': response_id,
-                    })
-                    .execute()
-                )
-            # if a corresponding uuid can't be found for the given officer, then throw an exception
-            else:
-                raise Exception('Invalid officer name.')
 
             time.sleep(5) # artificial delay to simulate incoming streaming data
     return transcription
