@@ -49,27 +49,20 @@ export default function Page() {
   }, []);
 
   // Calculate animated positions
-
-  // Helper function to create triangular wave
-  const getTriangularOffset = (t: number) => {
-    const period = 2 * Math.PI;
-    const normalizedT = ((t % period) + period) % period;
-    const amplitude = 0.001; // Maximum displacement of ±0.001 degrees
-
-    if (normalizedT < period / 3) {
-      // First third: rising
-      return (amplitude * 3 * normalizedT) / period;
-    } else if (normalizedT < (2 * period) / 3) {
-      // Second third: falling
-      return amplitude * (2 - (3 * normalizedT) / period);
-    } else {
-      // Final third: returning to start
-      return amplitude * ((3 * normalizedT) / period - 4);
-    }
+  const getTriangularOffset = (t: number, seed: string) => {
+    const amplitude = 0.000015; // Even smaller movement
+    // Use the unit's ID to create very slow frequencies for smoother movement
+    const frequency = parseInt(seed.slice(0, 3), 16) / 50000;
+    const phase = parseInt(seed.slice(-3), 16);
+    return amplitude * Math.sin((t + phase) * frequency);
   };
+
   const animatedUnits = units.map((unit) => ({
     ...unit,
-    latitude: unit.latitude + getTriangularOffset(time * 0.1), // Triangular wave pattern
+    latitude: unit.latitude + getTriangularOffset(time, unit.id),
+    longitude:
+      unit.longitude +
+      getTriangularOffset(time + 50, unit.id.split('').reverse().join('')),
   }));
 
   const handleSimulateClick = async () => {
