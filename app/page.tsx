@@ -83,9 +83,14 @@ export default function Page() {
 
   return (
     <main>
-      <div className="flex h-screen w-full flex-col items-center space-y-10 bg-black">
+      <div className="flex h-screen w-full flex-col items-center space-y-8 bg-black">
         <div className="mt-4 flex w-5/6 flex-row">
-          <span className="text-xl font-bold text-white">partneur.al</span>
+          <span className="text-xl font-bold text-white">partneur/al.</span>
+        </div>
+        <div className="flex w-5/6 flex-row items-start">
+          <span className="text-5xl font-bold text-white">
+            Command Dashboard
+          </span>
         </div>
         <div className="flex h-3/4 w-full flex-row items-center justify-center space-x-2">
           <div className="h-full w-1/2 border-2 border-blue-500">
@@ -156,7 +161,7 @@ export default function Page() {
             </table>
           </div>
         </div>
-        <div className="mt-4 flex w-5/6 flex-row justify-end">
+        <div className="flex w-5/6 flex-row justify-end">
           <button
             className="text-md bg-blue-500 p-2 font-bold text-white"
             onClick={handleSimulateClick}
